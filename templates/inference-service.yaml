@@ -3,6 +3,19 @@ kind: Template
 metadata:
   name: kserve-modelcar-deployment
 objects:
+  - kind: Project
+    apiVersion: project.openshift.io/v1
+    metadata:
+      name: ${PROJECT_NAME}
+      labels:
+        kubernetes.io/metadata.name: ${PROJECT_NAME}
+        maistra.io/member-of: istio-system
+        modelmesh-enabled: 'false'
+        opendatahub.io/dashboard: 'true'
+      annotations:
+        openshift.io/description: ''
+        openshift.io/display-name: ${PROJECT_NAME}
+    spec: {}
   - apiVersion: serving.kserve.io/v1alpha1
     kind: ServingRuntime
     metadata:
@@ -14,6 +27,7 @@ objects:
         opendatahub.io/template-name: kserve-ovms
         openshift.io/display-name: fraud
       name: fraud
+      namespace: ${PROJECT_NAME}
       labels:
         opendatahub.io/dashboard: 'true'
     spec:
@@ -72,6 +86,7 @@ objects:
       annotations:
         openshift.io/display-name: fraud
       name: fraud
+      namespace: ${PROJECT_NAME}
       labels:
         opendatahub.io/dashboard: 'true'
     spec:
@@ -93,6 +108,11 @@ objects:
           runtime: fraud
           storageUri: oci://${MODEL_IMAGE_TAG}
 parameters:
+  - name: PROJECT_NAME
+    displayName: Project Name
+    description: Project name
+    required: true
+    value: fraud-detection
   - name: MODEL_IMAGE_TAG
     displayName: Image Tag
     description: Image tag for the transformer
