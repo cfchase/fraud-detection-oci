@@ -1,0 +1,101 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: kserve-modelcar-deployment
+objects:
+  - apiVersion: serving.kserve.io/v1alpha1
+    kind: ServingRuntime
+    metadata:
+      annotations:
+        opendatahub.io/accelerator-name: ''
+        opendatahub.io/apiProtocol: REST
+        opendatahub.io/recommended-accelerators: '["nvidia.com/gpu"]'
+        opendatahub.io/template-display-name: OpenVINO Model Server
+        opendatahub.io/template-name: kserve-ovms
+        openshift.io/display-name: fraud
+      name: fraud
+      labels:
+        opendatahub.io/dashboard: 'true'
+    spec:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: '8888'
+      containers:
+        - args:
+            - '--model_name={{.Name}}'
+            - '--port=8001'
+            - '--rest_port=8888'
+            - '--model_path=/mnt/models'
+            - '--file_system_poll_wait_seconds=0'
+            - '--grpc_bind_address=0.0.0.0'
+            - '--rest_bind_address=0.0.0.0'
+            - '--target_device=AUTO'
+            - '--metrics_enable'
+          image: 'quay.io/modh/openvino_model_server@sha256:9ccb29967f39b5003cf395cc686a443d288869578db15d0d37ed8ebbeba19375'
+          name: kserve-container
+          ports:
+            - containerPort: 8888
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /dev/shm
+              name: shm
+      multiModel: false
+      protocolVersions:
+        - v2
+        - grpc-v2
+      supportedModelFormats:
+        - autoSelect: true
+          name: openvino_ir
+          version: opset13
+        - name: onnx
+          version: '1'
+        - autoSelect: true
+          name: tensorflow
+          version: '1'
+        - autoSelect: true
+          name: tensorflow
+          version: '2'
+        - autoSelect: true
+          name: paddle
+          version: '2'
+        - autoSelect: true
+          name: pytorch
+          version: '2'
+      volumes:
+        - emptyDir:
+            medium: Memory
+            sizeLimit: 2Gi
+          name: shm
+  - apiVersion: serving.kserve.io/v1beta1
+    kind: InferenceService
+    metadata:
+      annotations:
+        openshift.io/display-name: fraud
+      name: fraud
+      labels:
+        opendatahub.io/dashboard: 'true'
+    spec:
+      predictor:
+        maxReplicas: 1
+        minReplicas: 1
+        model:
+          modelFormat:
+            name: onnx
+            version: '1'
+          name: ''
+          resources:
+            limits:
+              cpu: '2'
+              memory: 4Gi
+            requests:
+              cpu: '0.1'
+              memory: 2Gi
+          runtime: fraud
+          storageUri: oci://${MODEL_IMAGE_TAG}
+parameters:
+  - name: MODEL_IMAGE_TAG
+    displayName: Image Tag
+    description: Image tag for the transformer
+    required: true
+    value: quay.io/cfchase/fraud-detection-modelcar:latest
+
